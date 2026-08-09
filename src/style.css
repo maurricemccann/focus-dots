@@ -1,0 +1,43 @@
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+label {
+  display: block;
+  font-size: 14px;
+  margin-top: 12px;
+  color: #444;
+}
+
+select,
+input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 16px;
+  padding: 8px;
+  margin-top: 4px;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 8px;
+  font-size: 16px;
+}
+
+#stop {
+  background: #eee;
+}
+
+.hint {
+  color: #666;
+  font-size: 14px;
+}
+
+#status {
+  color: #2a7;
+  font-size: 14px;
+}

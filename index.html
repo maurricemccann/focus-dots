@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Focus Dots</title>
+  </head>
+  <body>
+    <div id="app">
+      <main>
+        <h1>Focus Dots</h1>
+        <p class="hint">A slow fixation exercise for eye-muscle strain and alignment work — not a substitute for professional vision care. Stop if you feel pain or dizziness.</p>
+        <label for="mode">Exercise</label>
+        <select id="mode">
+          <option value="nearfar">Near / Far shift — accommodation</option>
+          <option value="converge">Converge / Diverge — two-dot fusion</option>
+        </select>
+        <label for="interval">Seconds per step</label>
+        <input id="interval" type="number" min="2" max="15" value="4" />
+        <label for="reps">Reps</label>
+        <input id="reps" type="number" min="4" max="60" value="20" />
+        <button id="start" type="button">Start on glasses</button>
+        <button id="stop" type="button">Stop</button>
+        <p id="status"></p>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
