@@ -5,6 +5,17 @@ body {
   padding: 24px 16px;
 }
 
+h1 {
+  font-size: 22px;
+  margin: 0;
+}
+
+h2 {
+  font-size: 15px;
+  margin: 24px 0 8px;
+  color: #444;
+}
+
 label {
   display: block;
   font-size: 14px;
@@ -12,8 +23,7 @@ label {
   color: #444;
 }
 
-select,
-input {
+select {
   width: 100%;
   box-sizing: border-box;
   font-size: 16px;
@@ -22,22 +32,84 @@ input {
 }
 
 button {
-  width: 100%;
-  padding: 12px;
+  padding: 10px 16px;
   margin-top: 8px;
-  font-size: 16px;
+  font-size: 15px;
 }
 
-#stop {
-  background: #eee;
+button.danger {
+  background: #fee;
+  color: #a11;
 }
 
-.hint {
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.row label {
+  margin-top: 0;
+  flex: 0 0 auto;
+}
+.row select {
+  margin-top: 0;
+}
+
+.hint,
+.stop-rule {
   color: #666;
-  font-size: 14px;
+  font-size: 13px;
 }
 
-#status {
+.stats {
   color: #2a7;
   font-size: 14px;
+}
+
+.status {
+  background: #f3f3f3;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 12px;
+}
+.status .phase {
+  font-weight: 600;
+  margin: 0;
+}
+.status .label {
+  color: #666;
+  margin: 4px 0 0;
+}
+.status .controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.status .controls button {
+  flex: 1 1 auto;
+  margin-top: 0;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.item-title {
+  display: flex;
+  flex-direction: column;
+}
+.item-title .muted {
+  color: #777;
+  font-size: 12px;
 }

@@ -10,11 +10,11 @@
   },
   "devDependencies": {
     "@evenrealities/evenhub-cli": "^0.1.13",
-    "@evenrealities/evenhub-simulator": "^0.8.0",
+    "@evenrealities/evenhub-simulator": "^0.9.5",
     "typescript": "~6.0.2",
     "vite": "^8.2.0"
   },
   "dependencies": {
-    "@evenrealities/even_hub_sdk": "^0.0.13"
+    "@evenrealities/even_hub_sdk": "^0.0.14"
   }
 }
