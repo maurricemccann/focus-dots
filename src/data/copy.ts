@@ -45,10 +45,15 @@ export const GLASSES_CONTROLS = [
   ['Double tap', 'exit'],
 ] as const
 
+// These strings go to the LENS, so they are ASCII plus the two glyphs
+// BLUEPRINT.md confirms are in the firmware font (`·` and `●`). Em dashes were
+// being dropped silently — `rest` in particular redraws every second of every
+// rest period, so the gap where the dash should be was the most-seen defect in
+// the app. The middle dots elsewhere in this file are fine and deliberate.
 export const LABEL = {
   tapToBegin: 'tap to begin',
   tapToContinue: 'tap to continue',
-  paused: 'paused — tap to resume',
-  rest: (s: number) => `rest ${s}s — tap to skip`,
+  paused: 'paused · tap to resume',
+  rest: (s: number) => `rest ${s}s · tap to skip`,
   step: (i: number, n: number, name: string) => `${i}/${n} ${name}`,
 }

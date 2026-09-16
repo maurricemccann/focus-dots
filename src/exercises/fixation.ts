@@ -54,13 +54,17 @@ export const def: ExerciseDef = {
   name: 'Fixation Hold',
   kind: 'binocular',
   summary: 'Hold your gaze on one still dot. Keep your head as still as the dot.',
+  // FIVE lines, ASCII only. The instruction screen renders five and this had
+  // six, so it stopped mid-sentence on "...easier than holding your" — the
+  // sixth line was written and never seen. Em dashes are dropped by the
+  // firmware font (BLUEPRINT.md: "Do not use other unicode"), so the sentences
+  // are punctuated with full stops instead.
   instructions: () => [
     'A ring with a dot, centre.',
     'Look at the dot and hold.',
-    'Blink often — do not stare.',
-    'Keep your head still — moving your',
-    'head is easier than holding your',
-    'eyes still, so the drill checks both.',
+    'Blink often. Do not stare.',
+    'Hold your head still too, not just',
+    'your eyes. The drill checks both.',
   ],
   params: [
     { key: 'holdSec', label: 'Hold', type: 'number', default: 30, min: 10, max: 120, step: 10, unit: 's', help: 'Total time to hold fixation.' },

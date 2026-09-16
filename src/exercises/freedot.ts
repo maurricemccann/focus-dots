@@ -27,8 +27,9 @@ export const def: ExerciseDef = {
   instructions: () => [
     'Tap the preview to place the dot.',
     'Hold your gaze on it.',
-    'Move it whenever you like —',
-    'it does not restart the drill.',
+    // ASCII only: the firmware silently drops em dashes (BLUEPRINT.md).
+    'Move it whenever you like. It',
+    'does not restart the drill.',
     'Blink often. Do not stare.',
   ],
   params: [
