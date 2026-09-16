@@ -1,8 +1,14 @@
-// Smooth Pursuit — one target the eyes follow smoothly, both eyes open.
-// Tracer layout only: moving the dot is a text-container upgrade on one of
-// five rows, near-free over Bluetooth, so the target moves every tick.
-// Each upgrade still costs ~100-300 ms of BLE time, so the motion is a
-// stepped glide, never true animation — small strides keep it smooth.
+// Smooth Pursuit — one bright ball the eyes follow along a dim visible path.
+//
+// The path is drawn (founder ruling S276·2997, and the See In 3D exercises his
+// research pointed at all draw the track the target runs on). It replaces the
+// tracer's five invisible rows: with nothing on screen but the dot, the eye has
+// no guide to anticipate, which is half of what pursuit training is for.
+//
+// Curve layout: the path is one dim text container, the ball a bright one, and
+// a step is a text-only rebuild — fast, and the path is repainted intact each
+// time. See page.ts for why an image path cannot work here.
+import { curvePoints, isClosed, type CurvePoint, type CurveShape } from '../glasses/curves'
 import {
   clamp,
   type ExerciseContext,
@@ -13,39 +19,35 @@ import {
   type Params,
 } from '../engine/types'
 
-type Path = 'horizontal' | 'vertical' | 'zigzag' | 'figure8'
-const PATHS: readonly Path[] = ['horizontal', 'vertical', 'zigzag', 'figure8']
+const PATHS: readonly CurveShape[] = [
+  'line', 'vertical', 'zigzag', 'figure8', 'circle', 'square', 'arc', 'sweep',
+]
 
-const COLS = 96                        // tracer columns 0-95
-const ROWS = 5                         // tracer rows 0-4
-const MID_ROW = 2
-const MID_COL = 47
-const LABEL_EVERY_MS = 2000            // each label change is one more upgrade — cap the churn
-const ZIG = [0, 1, 2, 3, 4, 3, 2, 1]   // zigzag: row per sweep, 0..4..0
+const STEPS = 96                       // points sampled along the path
+const LABEL_EVERY_MS = 2000            // each label change is one more rebuild — cap the churn
 
-/** ms to wait after each step. Never below 80 — an upgrade is already ~100-300 ms. */
+/** ms to wait after each step. Never below 80 — a rebuild is already ~100-300 ms. */
 function waitFor(speed: number) { return clamp(420 - speed * 35, 80, 400) }
 
 /**
- * Columns moved per step. Scales gently with speed (3..7) because the fixed
- * BLE cost per upgrade compresses what the wait alone can express — real step
- * periods run roughly 585 ms at speed 1 to 280 ms at speed 10, only ~2x.
- * With the stride, a horizontal sweep runs ~20 s at speed 1 down to ~4 s at 10.
+ * Points advanced per step. Scales gently with speed because the fixed BLE cost
+ * per rebuild compresses what the wait alone can express — real step periods run
+ * roughly 585 ms at speed 1 to 280 ms at speed 10, only ~2x.
  */
-function stride(speed: number) { return 2 + Math.round(speed / 2) }
-
-/** 0 -> 1 -> 0 as p runs 0 -> 1 -> 2, repeating. */
-function triangle(p: number) { const m = p % 2; return m <= 1 ? m : 2 - m }
+function stride(speed: number) { return 1 + Math.round(speed / 2) }
 
 function create(ctx: ExerciseContext, params: Params): ExerciseInstance {
   const rawPath = String(params.path)
-  const path: Path = (PATHS as readonly string[]).includes(rawPath) ? (rawPath as Path) : 'horizontal'
+  const path: CurveShape = (PATHS as readonly string[]).includes(rawPath) ? (rawPath as CurveShape) : 'line'
   let speed = clamp(Math.round(Number(params.speed) || 4), 1, 10)
   const durationMs = clamp(Number(params.durationSec) || 60, 20, 300) * 1000
+  const dim = clamp(Math.round(Number(params.pathDim) || 1), 1, 4) as 1 | 2 | 3 | 4
 
-  // phase: sweep progress for horizontal/vertical/zigzag (1.0 = one sweep),
-  // or the angle t for figure8.
-  let phase = 0
+  const points: CurvePoint[] = curvePoints(path, STEPS)
+  const closed = isClosed(path)
+
+  let index = 0
+  let dir: 1 | -1 = 1                   // open paths reverse at the ends
   let steps = 0
   let startedAt = 0
   let endedAt = 0
@@ -55,17 +57,16 @@ function create(ctx: ExerciseContext, params: Params): ExerciseInstance {
   let labelNote = ''                    // one-shot label after a speed change
   let inflight: Promise<void> = Promise.resolve()
 
-  function position(): { row: number; col: number } {
-    if (path === 'vertical') return { row: triangle(phase) * (ROWS - 1), col: MID_COL }
-    if (path === 'zigzag') return { row: ZIG[Math.floor(phase) % ZIG.length], col: triangle(phase) * (COLS - 1) }
-    if (path === 'figure8') return { row: MID_ROW + 2 * Math.sin(2 * phase), col: MID_COL + 45 * Math.sin(phase) }
-    return { row: MID_ROW, col: triangle(phase) * (COLS - 1) }
-  }
-
   function advance() {
     const s = stride(speed)
-    // figure8: d(col)/dt peaks at 45, so dt = s/45 caps the column jump at s.
-    phase += path === 'figure8' ? s / 45 : s / (COLS - 1)
+    if (closed) { index = (index + s) % points.length; return }
+    // An open path is walked out and back — jumping from the last point to the
+    // first would snap the eye across the whole field, which is the opposite of
+    // pursuit.
+    let next = index + dir * s
+    if (next >= points.length - 1) { next = points.length - 1; dir = -1 }
+    else if (next <= 0) { next = 0; dir = 1 }
+    index = next
   }
 
   function remainingSec(now: number) {
@@ -79,10 +80,9 @@ function create(ctx: ExerciseContext, params: Params): ExerciseInstance {
   }
 
   async function place(now: number) {
-    const { row, col } = position()
     let text: string | undefined
     if (now - lastLabelAt >= LABEL_EVERY_MS) { lastLabelAt = now; text = label(now) }
-    inflight = ctx.page.tracer(row, col, text)
+    inflight = ctx.page.curve(points, index, text, dim)
     await inflight
   }
 
@@ -122,7 +122,6 @@ function create(ctx: ExerciseContext, params: Params): ExerciseInstance {
       if (!endedAt) endedAt = ctx.now()
       // Let an in-flight move land first so clearTracer sees every row it wrote.
       try { await inflight } catch { /* a failed send is already named on the strip */ }
-      await ctx.page.clearTracer()
     },
 
     result(): ExerciseResult {
@@ -143,25 +142,34 @@ export const def: ExerciseDef = {
   id: 'pursuit',
   name: 'Smooth Pursuit',
   kind: 'binocular',
-  summary: 'Follow a gliding dot with both eyes. Head still.',
+  summary: 'Follow a bright ball along a dim path. Head still.',
   instructions() {
     return [
       'Both eyes open. Keep your head still.',
-      'Follow the dot with your eyes only.',
+      'Follow the bright ball with your eyes only.',
+      'The dim path shows where it goes next.',
       'Stay on it. Do not jump ahead.',
       'Swipe up or down to change speed.',
     ]
   },
   params: [
     {
-      key: 'path', label: 'Path', type: 'select', default: 'horizontal',
+      key: 'path', label: 'Path', type: 'select', default: 'line',
       options: [
-        { value: 'horizontal', label: 'Horizontal' },
+        { value: 'line', label: 'Straight' },
         { value: 'vertical', label: 'Vertical' },
-        { value: 'zigzag', label: 'Zigzag' },
+        { value: 'circle', label: 'Circle' },
+        { value: 'square', label: 'Square' },
         { value: 'figure8', label: 'Figure 8' },
+        { value: 'zigzag', label: 'Zigzag' },
+        { value: 'arc', label: 'Arc' },
+        { value: 'sweep', label: 'Sweep' },
       ],
-      help: 'The shape the dot traces. Start with horizontal.',
+      help: 'The path the ball travels, drawn dim on the lens. Start with straight, then circle.',
+    },
+    {
+      key: 'pathDim', label: 'Path brightness', type: 'number', default: 1, min: 1, max: 4, step: 1,
+      help: 'How bright the guide path is. 1 is dimmest — the ball should always be the brightest thing on the lens.',
     },
     {
       key: 'speed', label: 'Speed', type: 'number', default: 4, min: 1, max: 10, step: 1,

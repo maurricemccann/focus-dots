@@ -40,6 +40,13 @@ export interface Dot {
 export interface PageApi {
   /** Full-screen text (instruction / rest / summary). Text layout. */
   text(content: string, label?: string): Promise<void>
+  /**
+   * A dim path with one bright ball on it. Curve layout.
+   * `points` are normalised 0-1; `ballIndex` walks along them. Text-only, so a
+   * step is a fast rebuild — the path is redrawn intact each time rather than
+   * being occluded by the ball's own container.
+   */
+  curve(points: { x: number; y: number }[], ballIndex: number, label?: string, dim?: 1 | 2 | 3 | 4): Promise<void>
   /** Up to 6 positioned dots. Dots layout. Re-positioning is a rebuild — fine at a few per second, not per frame. */
   dots(dots: Dot[], label: string): Promise<void>
   /** Move a target on the tracer layout: row 0-4 (top to bottom), col 0-95 (left to right). Near-free. */

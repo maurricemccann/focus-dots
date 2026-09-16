@@ -23,10 +23,16 @@ initUI()
 await showIdle()
 
 // Headless test entry — the simulator drives glasses gestures but not phone
-// DOM clicks. ?autotest=<exerciseId> runs one exercise with defaults;
-// ?autotest=preset:<routineId> runs a built-in routine. Skips the first-run
-// expectations screen so a scripted run lands on the instruction screen.
-const autotest = new URLSearchParams(location.search).get('autotest')
+// DOM clicks. ?autotest=<exerciseId> runs one exercise; ?autotest=preset:<id>
+// runs a built-in routine. Skips the first-run expectations screen so a
+// scripted run lands on the instruction screen.
+//
+// Any other query param is passed through as an exercise param, so a specific
+// variant can be captured without touching the phone UI — e.g.
+// ?autotest=pursuit&path=circle&pathDim=2. Values are typed by the exercise's
+// own ParamSpec, since everything arrives from a URL as a string.
+const params = new URLSearchParams(location.search)
+const autotest = params.get('autotest')
 if (autotest) {
   saveSettings({ expectationsSeen: true })
   if (autotest.startsWith('preset:')) {
@@ -36,9 +42,18 @@ if (autotest) {
   } else {
     const def = exercise(autotest)
     if (def) {
+      const overrides: Record<string, string | number | boolean> = {}
+      for (const spec of def.params) {
+        const raw = params.get(spec.key)
+        if (raw === null) continue
+        overrides[spec.key] =
+          spec.type === 'number' ? Number(raw)
+          : spec.type === 'boolean' ? raw !== 'false' && raw !== '0'
+          : raw
+      }
       void startRoutine({
         id: `auto-${def.id}`, name: def.name, description: '',
-        steps: [{ exerciseId: def.id }], restSeconds: 3,
+        steps: [{ exerciseId: def.id, params: overrides }], restSeconds: 3,
       })
     } else console.warn('[FocusDots] autotest: unknown exercise', autotest)
   }

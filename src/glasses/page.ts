@@ -18,7 +18,7 @@ import {
 } from './canvas'
 import type { Dot, PageApi } from '../engine/types'
 
-type Layout = 'text' | 'dots' | 'tracer' | 'image'
+type Layout = 'text' | 'dots' | 'tracer' | 'image' | 'curve'
 
 const LABEL_H = 28
 const LABEL_Y = SCREEN_H - LABEL_H            // 260
@@ -69,6 +69,69 @@ function dotLayers(dots: Dot[]) {
     isEventCapture: 0, zOrderIndex: 7 + i, textColor: d.bright ?? brightness,
   }))
 }
+// ── Curve layout ───────────────────────────────────────────────────────────
+// A dim path with a bright ball on it (founder, S276·2997).
+//
+// The path is text, not an image, and that is forced rather than chosen: an
+// image costs 2-8 s to send, and moving the ball needs a rebuild, which leaves
+// the image containers empty until the tiles are re-sent. So a drawn path plus
+// a moving ball is 2-8 s per step — not pursuit. Text rebuilds are fast, and a
+// rebuild repaints the whole page, so the path comes back intact every step
+// instead of being punched full of holes by the ball's own container.
+//
+// Dim-vs-bright is per container (textColor 1-4), which is why the path and the
+// ball have to be two containers. One string cannot be dim in one place.
+//
+const CURVE_COLS = 96
+const CURVE_ROWS = 9
+
+// These four are MEASURED off real captures, not derived. The firmware font is
+// proportional, so a space is NOT SCREEN_W/96 = 6 px: a full-width circle path
+// rendered 0 -> 476 px across its 95 columns, giving 5.01 px per space. Rows
+// measured 27.25 px apart with the first at y ~ 16.5.
+//
+// This matters because the ball is positioned in pixels while the path is
+// positioned in character cells — if the two disagree, the ball floats off its
+// own track. Deriving both from the same measured numbers is what keeps it on.
+// Re-measure if the firmware font ever changes; the check is one capture of the
+// circle path and its lit extent.
+const CURVE_COL_W = 5.011
+const CURVE_ROW_H = 26.9
+const CURVE_Y0 = 16.5
+// The `●` glyph does not sit in the middle of its 40 px container — it renders
+// high, so a ball placed at the path's own y lands above the line. Measured:
+// path row y=123, ball centre y=113.
+const CURVE_BALL_NUDGE = 10
+
+function curveLayer(content: string, color: 1 | 2 | 3 | 4) {
+  return new TextContainerProperty({
+    xPosition: 0, yPosition: 0, width: SCREEN_W, height: LABEL_Y,
+    borderWidth: 0, borderColor: 0, paddingLength: 0,
+    containerID: 1, containerName: 'event', content,
+    isEventCapture: 1, zOrderIndex: 1, textColor: color,
+  })
+}
+
+/** Plot the path as `·` on a 96 x 9 character grid. */
+function curveGrid(points: { x: number; y: number }[]): string {
+  const grid = Array.from({ length: CURVE_ROWS }, () => new Array<string>(CURVE_COLS).fill(' '))
+  for (const p of points) {
+    const c = Math.max(0, Math.min(CURVE_COLS - 1, Math.round(p.x * (CURVE_COLS - 1))))
+    const r = Math.max(0, Math.min(CURVE_ROWS - 1, Math.round(p.y * (CURVE_ROWS - 1))))
+    grid[r][c] = '·'
+  }
+  // Trailing spaces cost content budget (1000 char cap) and render nothing.
+  return grid.map(row => row.join('').replace(/\s+$/, '')).join('\n')
+}
+
+/** Where the ball sits, in pixels, for a normalised point on the path. */
+function curveBallXY(p: { x: number; y: number }) {
+  return {
+    x: p.x * (CURVE_COLS - 1) * CURVE_COL_W + CURVE_COL_W / 2,
+    y: CURVE_Y0 + p.y * (CURVE_ROWS - 1) * CURVE_ROW_H,
+  }
+}
+
 function rowLayers() {
   return Array.from({ length: ROWS }, (_, i) => new TextContainerProperty({
     xPosition: 0, yPosition: ROW_Y0 + i * (ROW_H + ROW_GAP), width: SCREEN_W, height: ROW_H,
@@ -141,6 +204,26 @@ export const page: PageApi = {
     }
     previewClear()
     previewText(0, 0, SCREEN_W, LABEL_Y, content, brightness)
+    previewText(0, LABEL_Y, SCREEN_W, LABEL_H, labelText, brightness, 12)
+  },
+
+  async curve(points, ballIndex, label, dim = 1) {
+    if (label !== undefined) labelText = label
+    const i = ((ballIndex % points.length) + points.length) % points.length
+    const { x, y } = curveBallXY(points[i])
+    await build('curve', [
+      curveLayer(curveGrid(points), dim),
+      labelLayer(),
+      ...dotLayers([{ x, y: y + CURVE_BALL_NUDGE, size: 'large', bright: 4 }]),
+    ])
+    previewClear()
+    // The path is drawn dim in the preview too, so the phone shows the same
+    // hierarchy the lens does rather than a flat, equally-bright version.
+    for (const p of points) {
+      const q = curveBallXY(p)
+      previewDot(q.x, q.y, 'small', dim)
+    }
+    previewDot(x, y, 'large', 4)
     previewText(0, LABEL_Y, SCREEN_W, LABEL_H, labelText, brightness, 12)
   },
 
