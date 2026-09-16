@@ -4,7 +4,7 @@ import { attachGlassesEvents, showIdle, startRoutine } from './engine/session'
 import { loadAll, settings, saveSettings } from './data/store'
 import { exercise } from './engine/registry'
 import { routineById } from './data/presets'
-import { initUI } from './phone/ui'
+import { initUI } from './phone/mount'
 
 // Order matters and was paid for on hardware: the page goes up FIRST so the
 // lenses are never blank, then storage (a BLE round-trip, capped) fills in

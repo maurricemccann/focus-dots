@@ -1,149 +1,51 @@
-body {
-  font-family: system-ui, sans-serif;
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 24px 16px;
-}
+@import 'tailwindcss';
 
-h1 {
-  font-size: 22px;
-  margin: 0;
-}
+/* NOTE: even-toolkit's theming guide documents these as
+   'even-toolkit/web/theme/tokens-light.css', but the package's exports map only
+   publishes 'web/theme-light.css'. The documented paths fail the build. Verified
+   against its package.json exports, not its docs. */
+@import 'even-toolkit/web/theme-light.css';
+@import 'even-toolkit/web/typography.css';
+@import 'even-toolkit/web/utilities.css';
 
-h2 {
-  font-size: 15px;
-  margin: 24px 0 8px;
-  color: #444;
-}
+/* Tailwind v4 only scans the app's own sources, so the toolkit's shipped
+   components must be named explicitly or they arrive with no CSS at all. */
+@source '../node_modules/even-toolkit/dist';
 
-label {
-  display: block;
-  font-size: 14px;
-  margin-top: 12px;
-  color: #444;
-}
-
-select {
-  width: 100%;
-  box-sizing: border-box;
-  font-size: 16px;
-  padding: 8px;
-  margin-top: 4px;
-}
-
-button {
-  padding: 10px 16px;
-  margin-top: 8px;
-  font-size: 15px;
-}
-
-button.danger {
-  background: #fee;
-  color: #a11;
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.row label {
-  margin-top: 0;
-  flex: 0 0 auto;
-}
-.row select {
-  margin-top: 0;
-}
-
-.hint,
-.stop-rule {
-  color: #666;
-  font-size: 13px;
-}
-
-.stats {
-  color: #2a7;
-  font-size: 14px;
-}
-
-.status {
-  background: #f3f3f3;
-  border-radius: 8px;
-  padding: 12px;
-  margin-top: 12px;
-}
-.status .phase {
-  font-weight: 600;
-  margin: 0;
-}
-.status .label {
-  color: #666;
-  margin: 4px 0 0;
-}
-.status .controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
-}
-.status .controls button {
-  flex: 1 1 auto;
-  margin-top: 0;
-}
-
-/* The lens preview. Black ground because that is what the glasses show — the
-   display is additive, so anything unlit is simply off. Full width at the real
-   2:1 aspect so the target lands where the tap said it would. */
-.preview-box {
-  margin-top: 16px;
-}
-.preview {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 2 / 1;
-  background: #000;
-  border-radius: 6px;
-  cursor: crosshair;
-  touch-action: manipulation;
-}
-.preview-box .muted {
-  color: #777;
-  font-size: 12px;
-  margin: 6px 0 0;
-}
-
-.tag {
-  align-self: flex-start;
-  margin-top: 2px;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #2a7;
-  border: 1px solid #2a7;
-  border-radius: 3px;
-  padding: 0 4px;
-}
-
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 10px 12px;
-}
-.item-title {
-  display: flex;
-  flex-direction: column;
-}
-.item-title .muted {
-  color: #777;
-  font-size: 12px;
+/* The toolkit ships its tokens as plain :root custom properties, NOT as a
+   Tailwind v4 @theme block — so Tailwind never learns that utilities like
+   `bg-surface-lighter` and `text-text` (which its components are built from)
+   should exist, and every component renders unstyled. `@theme inline` adopts
+   the existing variables without re-emitting them, which is what turns those
+   tokens back into real utilities. Generated from tokens-light.css.
+   Re-generate if the toolkit adds tokens. */
+@theme inline {
+  --color-text: var(--color-text);
+  --color-text-dim: var(--color-text-dim);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-highlight: var(--color-text-highlight);
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-light: var(--color-surface-light);
+  --color-surface-lighter: var(--color-surface-lighter);
+  --color-border: var(--color-border);
+  --color-border-light: var(--color-border-light);
+  --color-accent: var(--color-accent);
+  --color-accent-alpha: var(--color-accent-alpha);
+  --color-accent-warning: var(--color-accent-warning);
+  --color-positive: var(--color-positive);
+  --color-positive-alpha: var(--color-positive-alpha);
+  --color-negative: var(--color-negative);
+  --color-negative-alpha: var(--color-negative-alpha);
+  --color-overlay: var(--color-overlay);
+  --color-input-bg: var(--color-input-bg);
+  --radius-default: var(--radius-default);
+  --spacing-margin: var(--spacing-margin);
+  --spacing-card-margin: var(--spacing-card-margin);
+  --spacing-same: var(--spacing-same);
+  --spacing-cross: var(--spacing-cross);
+  --spacing-section: var(--spacing-section);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
 }
