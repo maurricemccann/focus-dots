@@ -10,6 +10,8 @@ import { defaultsFor, otherEye, type ExerciseInstance, type ExerciseResult, type
 import { settings, saveSettings, addSession } from '../data/store'
 import { EXPECTATIONS_LENS, LABEL, patchCue, patchOffCue } from '../data/copy'
 import { groupsWithStrays, groupExercises, cardText } from './jukebox'
+import { section, divider, stat, sparkline, heatStrip, progressBar } from '@gabrielevierti/glyph'
+import { progress, metricSeries, streakDays, totalMinutes } from '../data/store'
 
 export type Phase = 'idle' | 'browse' | 'expectations' | 'instruction' | 'running' | 'paused' | 'rest' | 'summary'
 
@@ -275,15 +277,45 @@ async function showSummary() {
   const rec: SessionRecord = { at: sessionStart, routineId: routine.id, routineName: routine.name, results: [...results], totalMs }
   if (results.length) addSession(rec)
   const mins = Math.max(1, Math.round(totalMs / 60_000))
-  const lines = [
-    'Session complete.',
-    `${done} of ${routine.steps.length} exercises done · ${mins} min`,
-    '',
-    'Same time tomorrow.',
-    'Consistency is the whole method.',
-  ]
   lastLabel = LABEL.tapToContinue
-  await page.text(lines.join('\n'), LABEL.tapToContinue)
+
+  // Drawn with Glyph rather than printed as text (founder ruling S276·2997).
+  //
+  // The store has recorded every metric of every session since this app was
+  // built, and nothing ever showed them — metricSeries() had zero callers. For
+  // a drill whose own copy says "consistency is the whole method", progress IS
+  // the mechanism, and it was invisible.
+  //
+  // Static screen, so the 2-8 s image cost is paid once and never again.
+  const series = firstSeries()
+  const days = lastDays(14)
+  const drawn = await page.glyph((g: any) => {
+    const body = section(g, { x: 8, y: 6, width: 560, height: 246 }, 'SESSION COMPLETE')
+    stat(g, { x: body.x + 6, y: body.y + 4, width: 170, height: 38 }, 'DONE', `${done}/${routine!.steps.length}`)
+    stat(g, { x: body.x + 186, y: body.y + 4, width: 170, height: 38 }, 'MINUTES', String(mins))
+    stat(g, { x: body.x + 366, y: body.y + 4, width: 170, height: 38 }, 'STREAK', `${streakDays()}d`)
+    if (series) {
+      divider(g, { x: body.x + 6, y: body.y + 52, width: body.width - 12, height: 1 }, series.label)
+      sparkline(g, { x: body.x + 6, y: body.y + 62, width: body.width - 12, height: 62 }, series.values)
+    }
+    divider(g, { x: body.x + 6, y: body.y + 134, width: body.width - 12, height: 1 }, 'LAST 14 DAYS')
+    heatStrip(g, { x: body.x + 6, y: body.y + 146, width: body.width - 12, height: 20 }, days)
+    progressBar(g, { x: body.x + 6, y: body.y + 178, width: body.width - 12, height: 12 },
+      Math.min(1, totalMinutes() / 600))
+    g.text('Same time tomorrow.', body.x + 6, body.y + 202, { size: 15 }, 12)
+  }, LABEL.tapToContinue)
+
+  // A failed image send must never leave the lenses blank (BLUEPRINT.md) — fall
+  // back to exactly what this screen said before Glyph.
+  if (drawn !== 'success') {
+    await page.text([
+      'Session complete.',
+      `${done} of ${routine.steps.length} exercises done · ${mins} min`,
+      '',
+      'Same time tomorrow.',
+      'Consistency is the whole method.',
+    ].join('\n'), LABEL.tapToContinue)
+  }
   emit()
   await storageFlush()
 }
@@ -402,4 +434,31 @@ export async function showExpectations() {
   routine = null
   await page.text(EXPECTATIONS_LENS, LABEL.tapToContinue)
   emit()
+}
+
+/** The first exercise metric with enough history to be worth drawing. */
+function firstSeries(): { label: string; values: number[] } | null {
+  const candidates: [string, string, string][] = [
+    ['acuity', 'minPxCorrect', 'ACUITY - SMALLEST E'],
+    ['contrast', 'threshold', 'CONTRAST THRESHOLD'],
+    ['fixation', 'steadinessPct', 'FIXATION STEADINESS'],
+    ['pursuit', 'durationSec', 'PURSUIT SECONDS'],
+  ]
+  for (const [id, metric, label] of candidates) {
+    const pts = metricSeries(id, metric)
+    if (pts.length >= 2) return { label, values: pts.map(p => p.value) }
+  }
+  return null
+}
+
+/** Minutes trained per day over the last n days - the adherence picture. */
+function lastDays(n: number): number[] {
+  const out = new Array<number>(n).fill(0)
+  const dayMs = 86_400_000
+  const today = Math.floor(Date.now() / dayMs)
+  for (const rec of progress) {
+    const i = n - 1 - (today - Math.floor(rec.at / dayMs))
+    if (i >= 0 && i < n) out[i] += rec.totalMs / 60_000
+  }
+  return out
 }

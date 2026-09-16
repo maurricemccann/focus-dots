@@ -16,6 +16,7 @@ import {
   SCREEN_W, SCREEN_H, TILE_W, TILE_H, TILES,
   render, tilePixels, previewClear, previewTile, previewText, previewDot,
 } from './canvas'
+import { glyphLevels } from './glyph-screen'
 import type { Dot, PageApi } from '../engine/types'
 
 type Layout = 'text' | 'dots' | 'tracer' | 'image' | 'curve'
@@ -295,6 +296,38 @@ export const page: PageApi = {
       // Never blank the only visible thing on a failure — name it on the strip.
       console.warn('[FocusDots] image', result)
       await upgrade(6, 'label', `image ${result}`)
+    }
+    return result
+  },
+
+  async glyph(draw, label) {
+    if (layout !== 'image') {
+      labelText = label ?? labelText
+      await build('image', [eventLayer(' '), labelLayer()], [...tileLayers])
+    } else if (label !== undefined && label !== labelText) {
+      labelText = label
+      await upgrade(6, 'label', labelText || ' ')
+    }
+    // Glyph rasterises; this slices its levels into our four tiles and sends
+    // them through the same serial-owned path every other image uses. Glyph
+    // never touches the bridge — see glyph-screen.ts for why that matters.
+    const levels = await glyphLevels(draw)
+    let result = 'success'
+    for (let i = 0; i < TILES.length && result === 'success'; i++) {
+      const t = TILES[i]
+      const pixels = new Array<number>(TILE_W * TILE_H)
+      for (let y = 0; y < TILE_H; y++) {
+        const src = (t.y + y) * SCREEN_W + t.x
+        const dst = y * TILE_W
+        for (let x = 0; x < TILE_W; x++) pixels[dst + x] = levels[src + x]
+      }
+      previewTile(i, pixels)
+      result = await sendTile(i, pixels)
+    }
+    previewText(0, LABEL_Y, SCREEN_W, LABEL_H, labelText, brightness, 12)
+    if (result !== 'success') {
+      console.warn('[FocusDots] glyph', result)
+      await upgrade(6, 'label', `glyph ${result}`)
     }
     return result
   },

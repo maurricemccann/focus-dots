@@ -54,6 +54,12 @@ export interface PageApi {
   /** Blank every tracer row. */
   clearTracer(): Promise<void>
   /**
+   * Draw a screen with Glyph (real paths, arcs, charts, measured text) and send
+   * it as 4 image tiles. Image layout. Same 2-8 s cost as image() — for screens
+   * that are static or stepped, never for motion.
+   */
+  glyph(draw: (g: any) => void, label?: string): Promise<string>
+  /**
    * Draw a stimulus with canvas 2D and send it as 4 image tiles. Image layout.
    * Costs 2-8 s per call over Bluetooth — step, never animate. Draw on black;
    * white is brightest. Keep content inside y < 256 (label strip covers y >= 260).
