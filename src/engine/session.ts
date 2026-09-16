@@ -9,8 +9,9 @@ import { exercise } from './registry'
 import { defaultsFor, otherEye, type ExerciseInstance, type ExerciseResult, type Input, type Routine, type SessionRecord } from './types'
 import { settings, saveSettings, addSession } from '../data/store'
 import { EXPECTATIONS_LENS, LABEL, patchCue, patchOffCue } from '../data/copy'
+import { groupsWithStrays, groupExercises, cardText } from './jukebox'
 
-export type Phase = 'idle' | 'expectations' | 'instruction' | 'running' | 'paused' | 'rest' | 'summary'
+export type Phase = 'idle' | 'browse' | 'expectations' | 'instruction' | 'running' | 'paused' | 'rest' | 'summary'
 
 export interface SessionStatus {
   phase: Phase
@@ -29,7 +30,47 @@ const MENU = [
   { itemID: 4, itemName: 'Restart' },
   { itemID: 5, itemName: 'End session' },
 ]
+const BROWSE_MENU = groupsWithStrays().map((g, i) => ({ itemID: 100 + i, itemName: g.name }))
 setMenu(MENU)
+
+// ── The jukebox (browse phase) ────────────────────────────────────────────
+// Swipe pages the cards, tap starts, the menu jumps between groups.
+let groupIndex = 0
+let cardIndex = 0
+
+async function showCard() {
+  const groups = groupsWithStrays()
+  groupIndex = ((groupIndex % groups.length) + groups.length) % groups.length
+  const group = groups[groupIndex]
+  const defs = groupExercises(group)
+  if (!defs.length) { await toIdle(); return }
+  cardIndex = ((cardIndex % defs.length) + defs.length) % defs.length
+  phase = 'browse'
+  routine = null
+  lastLabel = LABEL_BROWSE
+  await page.text(cardText(group, defs[cardIndex], cardIndex, defs.length), LABEL_BROWSE)
+  emit()
+}
+
+const LABEL_BROWSE = 'swipe to browse · tap to start'
+
+export async function showBrowse() {
+  await endCurrent(false)
+  setMenu(BROWSE_MENU)
+  await showCard()
+}
+
+async function startCard() {
+  const groups = groupsWithStrays()
+  const defs = groupExercises(groups[groupIndex])
+  const def = defs[cardIndex]
+  if (!def) return
+  setMenu(MENU)
+  await startRoutine({
+    id: `card-${def.id}`, name: def.name, description: '',
+    steps: [{ exerciseId: def.id }], restSeconds: 0,
+  })
+}
 
 let phase: Phase = 'idle'
 let routine: Routine | null = null
@@ -258,8 +299,11 @@ async function toIdle() {
   await endCurrent(false)
   routine = null
   lastLabel = ''
-  await page.text('Focus Dots\nPick a routine on your phone.', ' ')
-  emit()
+  // Idle opens the jukebox rather than sending you to the phone. The lens used
+  // to say "Pick a routine on your phone." on a device whose whole point is
+  // that the phone stays in your pocket.
+  setMenu(BROWSE_MENU)
+  await showCard()
 }
 
 // ── Glasses input ─────────────────────────────────────────────────────────
@@ -281,6 +325,12 @@ function queueInput(i: Input) {
 async function onEvent(e: GlassesEvent) {
   switch (e.kind) {
     case 'menu': {
+      if (e.itemID >= 100) {
+        groupIndex = e.itemID - 100
+        cardIndex = 0
+        await showBrowse()
+        return
+      }
       if (e.itemID === 1) await pause()
       else if (e.itemID === 2) await resume()
       else if (e.itemID === 3) await skipStep()
@@ -317,6 +367,8 @@ async function onEvent(e: GlassesEvent) {
         await showInstruction()
       } else if (phase === 'summary') {
         await toIdle()
+      } else if (phase === 'browse') {
+        await startCard()
       } else if (phase === 'running') {
         queueInput({ type: 'tap' })
       }
@@ -324,11 +376,13 @@ async function onEvent(e: GlassesEvent) {
     // While an exercise runs, swipes belong to the exercise (acuity answers
     // up/down with them). Skip/restart live on the menu during a run.
     case 'down':
+      if (phase === 'browse') { cardIndex++; await showCard(); return }
       if (phase === 'running') queueInput({ type: 'down' })
       else if (phase === 'paused' || phase === 'instruction') await skipStep()
       else if (phase === 'expectations') { saveSettings({ expectationsSeen: true }); await showInstruction() }
       return
     case 'up':
+      if (phase === 'browse') { cardIndex--; await showCard(); return }
       if (phase === 'running') queueInput({ type: 'up' })
       else if (phase === 'paused') await restartStep()
       return
