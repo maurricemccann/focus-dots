@@ -139,7 +139,10 @@ function LensPreview({ placed, onPlace, onClear }: {
         ref={ref}
         width={SCREEN_W}
         height={SCREEN_H}
-        className="block w-full h-auto rounded-md bg-black cursor-crosshair"
+        // Capped rather than full-width: the lens is 2:1, so on anything wider
+        // than a phone an unconstrained preview grows to fill the page and
+        // pushes the exercise list off the bottom.
+        className="block w-full h-auto max-w-[520px] mx-auto rounded-md bg-black cursor-crosshair"
         style={{ aspectRatio: '2 / 1', touchAction: 'manipulation' }}
         onClick={(ev) => {
           const el = ref.current
