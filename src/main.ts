@@ -15,6 +15,13 @@ await loadAll()
 setBrightness(settings.brightness)
 initUI()
 
+// Repaint now that #preview exists. The first showIdle() above ran before the
+// UI was built, so canvas.ts's previewCtx() found no element and every preview
+// call no-opped — the lens was right and the phone's copy of it was blank. The
+// order above is deliberate and stays (lenses first, then storage, then UI), so
+// the fix is a second cheap text repaint rather than a reshuffle.
+await showIdle()
+
 // Headless test entry — the simulator drives glasses gestures but not phone
 // DOM clicks. ?autotest=<exerciseId> runs one exercise with defaults;
 // ?autotest=preset:<routineId> runs a built-in routine. Skips the first-run

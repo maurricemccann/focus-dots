@@ -91,6 +91,40 @@ button.danger {
   margin-top: 0;
 }
 
+/* The lens preview. Black ground because that is what the glasses show — the
+   display is additive, so anything unlit is simply off. Full width at the real
+   2:1 aspect so the target lands where the tap said it would. */
+.preview-box {
+  margin-top: 16px;
+}
+.preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 1;
+  background: #000;
+  border-radius: 6px;
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+.preview-box .muted {
+  color: #777;
+  font-size: 12px;
+  margin: 6px 0 0;
+}
+
+.tag {
+  align-self: flex-start;
+  margin-top: 2px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2a7;
+  border: 1px solid #2a7;
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
 .list {
   display: flex;
   flex-direction: column;
