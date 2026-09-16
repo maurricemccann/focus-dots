@@ -16,7 +16,7 @@
 // tiles always cover 165,888 pixels between them." A moving ball still costs a
 // whole tile per step, so pursuit stays on text containers. This is for the
 // screens that are static or stepped: summaries, instructions, rest, results.
-import { GlyphFrame, loadFontSet, type GlyphRaster } from '@gabrielevierti/glyph'
+import { GlyphFrame, GlyphRaster, loadFontSet } from '@gabrielevierti/glyph'
 
 let fontPromise: Promise<unknown> | null = null
 let font: unknown = null
@@ -45,16 +45,32 @@ async function ensureFont() {
  */
 export async function glyphLevels(
   draw: (g: GlyphRaster) => void,
-  opts: { brightness?: number } = {},
+  opts: { brightness?: number; width?: number; height?: number } = {},
 ): Promise<Uint8Array> {
   await ensureFont()
-  const frame = new GlyphFrame({
-    width: 576,
-    height: 288,
-    supersample: 2,
-    surface: 'outline',
+  const width = opts.width ?? 576
+  const height = opts.height ?? 288
+  const common = {
+    width, height, supersample: 2, surface: 'outline' as const,
     ...(opts.brightness !== undefined ? { brightness: opts.brightness } : {}),
-  })
+  }
+
+  // A GlyphFrame carries a TILE LAYOUT, and the default quadrants layout is
+  // 288x144 tiles — which do not fit anything smaller than the lens. Asking for
+  // a 132x66 thumbnail threw "tile t0 falls outside the 132x66 surface" and the
+  // canvas came back blank, silently, because the throw was inside an async
+  // effect. Anything that is not lens-sized wants the bare raster: same
+  // primitives, no tiles, since a thumbnail is never transmitted anywhere.
+  if (width !== 576 || height !== 288) {
+    const raster = new GlyphRaster(common)
+    if (font) {
+      try { (raster as any).useFont(font, 'auto') } catch { /* vector fallback */ }
+    }
+    draw(raster)
+    return raster.toLevels()
+  }
+
+  const frame = new GlyphFrame(common)
   if (font) {
     try { (frame.raster as any).useFont(font, 'auto') } catch { /* vector fallback */ }
   }

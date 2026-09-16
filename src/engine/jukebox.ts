@@ -30,7 +30,7 @@ export interface Group {
  */
 export const GROUPS: Group[] = [
   { id: 'track', name: 'Track', blurb: 'follow and jump', exerciseIds: ['pursuit', 'saccade'] },
-  { id: 'focus', name: 'Focus', blurb: 'aim and hold', exerciseIds: ['fixation', 'nearfar', 'converge', 'brock'] },
+  { id: 'focus', name: 'Focus', blurb: 'aim and hold', exerciseIds: ['fixation', 'freedot', 'nearfar', 'converge', 'brock'] },
   { id: 'see', name: 'See', blurb: 'resolve detail', exerciseIds: ['acuity', 'contrast', 'reading'] },
 ]
 

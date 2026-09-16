@@ -91,7 +91,19 @@ export interface ExerciseInstance {
   result(): ExerciseResult
 }
 
+/**
+ * A miniature of what this exercise puts on the lens, drawn with the same Glyph
+ * primitives as the real thing. Phone-side only — it never touches the bridge,
+ * so it costs nothing and cannot disturb a run.
+ *
+ * Founder ask S276·2997: "I kinda need a little preview of the exercise next to
+ * it so we're not going in blind."
+ */
+export type ExercisePreview = (g: any, w: number, h: number) => void
+
 export interface ExerciseDef {
+  /** Optional thumbnail for the phone list. */
+  preview?: ExercisePreview
   id: string
   name: string
   kind: ExerciseKind

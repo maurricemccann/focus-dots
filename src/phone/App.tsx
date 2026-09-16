@@ -25,6 +25,9 @@ import {
 } from '../engine/session'
 import { EXPECTATIONS_PHONE, STOP_RULE } from '../data/copy'
 import { GROUPS } from '../engine/jukebox'
+import { previewFor } from './previews'
+import { glyphLevels } from '../glasses/glyph-screen'
+import { setLiveTarget } from '../data/live'
 import type { Eye, Params, Routine } from '../engine/types'
 
 const SCREEN_W = 576
@@ -47,6 +50,55 @@ function placeable(exerciseId: string): boolean {
   if (!def) return false
   const keys = new Set(def.params.map(p => p.key))
   return keys.has('x') && keys.has('y')
+}
+
+/**
+ * A thumbnail of what this exercise puts on the lens.
+ *
+ * Founder: "I kinda need a little preview of the exercise next to it so we're
+ * not going in blind." Drawn with the same Glyph primitives as the real
+ * stimulus, phone-side only — it never touches the bridge, so it costs nothing
+ * and cannot disturb a run. An icon would not tell you whether a drill shows a
+ * shrinking letter or a moving ball; a miniature does.
+ */
+function ExerciseThumb({ id }: { id: string }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  const W = 132, H = 66
+
+  useEffect(() => {
+    const draw = previewFor(id)
+    const el = ref.current
+    if (!draw || !el) return
+    let cancelled = false
+    void (async () => {
+      const levels = await glyphLevels(g => draw(g, W, H), { width: W, height: H })
+      if (cancelled) return
+      const c = el.getContext('2d')
+      if (!c) return
+      const img = c.createImageData(W, H)
+      for (let i = 0, o = 0; i < levels.length; i++, o += 4) {
+        const k = levels[i] / 15
+        img.data[o] = 41 * k
+        img.data[o + 1] = 240 * k
+        img.data[o + 2] = 122 * k
+        img.data[o + 3] = 255
+      }
+      c.putImageData(img, 0, 0)
+    })()
+    return () => { cancelled = true }
+  }, [id])
+
+  if (!previewFor(id)) return null
+  return (
+    <canvas
+      ref={ref}
+      width={W}
+      height={H}
+      className="rounded bg-black"
+      style={{ width: 88, height: 44 }}
+      aria-hidden="true"
+    />
+  )
 }
 
 /**
@@ -147,7 +199,16 @@ export function App() {
         <div>
           <SectionHeader title="On the lens" />
           <Card padding="default">
-            <LensPreview placed={placed} onPlace={setPlaced} onClear={() => setPlaced(null)} />
+            <LensPreview
+              placed={placed}
+              onPlace={(p) => {
+                setPlaced(p)
+                // Also moves a Free Dot that is running right now — that is the
+                // whole point of that exercise, so the tap does both.
+                setLiveTarget(p)
+              }}
+              onClear={() => setPlaced(null)}
+            />
           </Card>
         </div>
 
@@ -181,6 +242,7 @@ export function App() {
                 key={def.id}
                 title={def.name}
                 subtitle={def.summary}
+                leading={<ExerciseThumb id={def.id} />}
                 trailing={
                   <Button
                     size="sm"

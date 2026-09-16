@@ -10,10 +10,11 @@ import { def as contrast } from '../exercises/contrast'
 import { def as acuity } from '../exercises/acuity'
 import { def as fixation } from '../exercises/fixation'
 import { def as reading } from '../exercises/reading'
+import { def as freedot } from '../exercises/freedot'
 
 export const EXERCISES: ExerciseDef[] = [
   nearfar, converge, brock, pursuit, saccade,
-  contrast, acuity, fixation, reading,
+  contrast, acuity, fixation, freedot, reading,
 ]
 
 const byId = new Map(EXERCISES.map(e => [e.id, e]))
