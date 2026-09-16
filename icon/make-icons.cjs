@@ -93,7 +93,7 @@ function chunk(type, data) {
 // — proving the ground was right and the ink was not. Pure #FFFFFF is rejected;
 // #f2f2f2 is the value Even Hub's own icon tool writes, so it is the value the
 // validator has always accepted.
-const FG = 0xf2
+const FG = 0xff
 function png(grid) {
   const raw = []
   for (let y = 0; y < SIZE; y++) {
@@ -106,7 +106,7 @@ function png(grid) {
       // never the colour; it was opacity. This field is the icon's FOREGROUND
       // layer, and the guidelines list foreground and background separately, so
       // ground here means absent, not dark.
-      raw.push(FG, FG, FG, on ? 0xff : 0x00)
+      raw.push(on ? 0xff : 0x00, on ? 0xff : 0x00, on ? 0xff : 0x00, 0xff)
     }
   }
   const ihdr = Buffer.alloc(13)

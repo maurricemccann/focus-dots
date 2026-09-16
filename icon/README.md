@@ -35,11 +35,33 @@ usable oracle:
 
 **What that proves:** `0,0` is the top-left ground pixel and `6,4` is the first
 LIT pixel of the eye. The error moving from one to the other means the
-**transparent ground is correct and accepted** — the remaining problem is the
-ink, and it is not a matter of which shade of white, since pure and near-white
-fail identically. Something else about the lit pixel is wrong: most likely the
-expected bit depth or colour type (1-bit greyscale / indexed with a 2-entry
-palette are both untried), not its RGB value.
+**transparent ground is accepted** — the remaining problem is the ink, and it is
+not a matter of which shade of white, since pure and near-white fail
+identically.
+
+### The g2-icon-studio lead, and why it does not settle it
+
+`naotake/g2-icon-studio` was recommended on the strength of "it exports exactly
+what Even Hub's submission form accepts." **Read its source before trusting
+that.** Its Even Hub preset is:
+
+```js
+if (p === 'evenhub') { fg = '#f2f2f2'; bg = '#0d0d0d'; }   // bgTrans = false
+canvas.toBlob(b => { /* … */ }, 'image/png');              // => RGBA, opaque
+```
+
+That is **row 3 of the table above** — the exact format the Hub rejected from
+us. So either the claim was an inference from the preset's *name* rather than a
+verified upload, or the difference lies somewhere below the pixel values: the
+PNG chunk structure or row filtering a browser's encoder emits versus this
+minimal hand-rolled one. The pixel data is identical either way.
+
+The current committed PNGs are the last untried cell of the matrix — **pure
+`#000000`/`#FFFFFF`, opaque, RGBA**. Generated and verified on disk, **not yet
+put to the validator.** Try that upload first; it costs one attempt.
+
+Still untried after that: bit depth 1, and indexed colour with a two-entry
+palette — both the literal reading of "monochrome PNG".
 
 ## The way that definitely works
 
