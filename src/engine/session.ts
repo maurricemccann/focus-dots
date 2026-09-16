@@ -10,7 +10,7 @@ import { defaultsFor, otherEye, type ExerciseInstance, type ExerciseResult, type
 import { settings, saveSettings, addSession } from '../data/store'
 import { EXPECTATIONS_LENS, LABEL, patchCue, patchOffCue } from '../data/copy'
 import { groupsWithStrays, groupExercises, cardText } from './jukebox'
-import { section, divider, stat, sparkline, heatStrip, progressBar } from '@gabrielevierti/glyph'
+import { section, divider, stat, sparkline, heatStrip, progressBar, ringChart } from '@gabrielevierti/glyph'
 import { progress, metricSeries, streakDays, totalMinutes } from '../data/store'
 
 export type Phase = 'idle' | 'browse' | 'expectations' | 'instruction' | 'running' | 'paused' | 'rest' | 'summary'
@@ -262,8 +262,28 @@ async function rest() {
   const token = ++runToken
   for (let s = secs; s > 0 && phase === 'rest' && token === runToken; s--) {
     lastLabel = LABEL.rest(s)
-    if (s === secs) await page.text('Rest.\nBlink. Look far away.\nBreathe.', lastLabel)
-    else await page.setLabel(lastLabel)
+    if (s === secs) {
+      // Drawn ONCE, then the per-second countdown rides the label strip. The
+      // strip is its own container, so ticking it never disturbs the tiles —
+      // which is the only reason a Glyph screen is affordable here at all. A
+      // ring redrawn each second would be an image send each second.
+      const drawn = await page.glyph((g: any) => {
+        const body = section(g, { x: 8, y: 6, width: 560, height: 246 }, 'REST')
+        ringChart(g, body.x + 92, body.y + 108, 74, 1, { value: String(secs), label: 'SECONDS' })
+        const tx = body.x + 210
+        g.text('Blink.', tx, body.y + 58, { size: 30, weight: 700 }, 15)
+        g.text('Look far away.', tx, body.y + 104, { size: 22 }, 12)
+        g.text('Breathe.', tx, body.y + 140, { size: 22 }, 12)
+        // See In 3D's protocol, in the one place it belongs: blinking
+        // lubricates, cuts strain, and forces the eye to refocus on the target.
+        g.text('Do not stare. Blinking refocuses the eye.', tx, body.y + 186, { size: 14 }, 8)
+      }, lastLabel)
+      if (drawn !== 'success') {
+        await page.text('Rest.\nBlink. Look far away.\nBreathe.', lastLabel)
+      }
+    } else {
+      await page.setLabel(lastLabel)
+    }
     await interruptibleSleep(1000)
   }
   if (phase === 'rest' && token === runToken) await showInstruction()
