@@ -2,7 +2,7 @@
 // background instead of shrinking. Same 2-alternative up/down answer as
 // Acuity; the confound this isolates is contrast, not size, so the E stays
 // large and only its brightness LEVEL steps down.
-import { otherEye, type Eye, type ExerciseContext, type ExerciseDef, type ExerciseInstance, type Input, type Params } from '../engine/types'
+import { type Eye, type ExerciseContext, type ExerciseDef, type ExerciseInstance, type Input, type Params } from '../engine/types'
 
 type Dir = 'up' | 'down'
 const CX = 288, CY = 128, PX = 90 // fixed, generous size — contrast is the only variable
@@ -115,8 +115,8 @@ export const def: ExerciseDef = {
   name: 'Contrast Sensitivity',
   kind: 'monocular',
   summary: 'A fixed-size E fades toward black. Answer up or down as long as you can tell.',
-  instructions: (weakEye: Eye) => [
-    `Cover your ${otherEye(weakEye).toUpperCase()} eye.`,
+  // Cover cue omitted on purpose — session.ts prepends patchCue() for monocular exercises (AT8).
+  instructions: (_weakEye: Eye) => [
     'An E points up or down.',
     'Swipe up or down to match it.',
     'Tap if you cannot tell.',

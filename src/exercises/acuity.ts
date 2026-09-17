@@ -1,7 +1,7 @@
 // Acuity & Crowding — a tumbling E that shrinks while you answer its direction.
 // One image per trial (2-8 s over Bluetooth), never animated. Two alternatives,
 // up or down, because the glasses give us swipe up / swipe down.
-import { otherEye, type Eye, type ExerciseContext, type ExerciseDef, type ExerciseInstance, type Input, type Params } from '../engine/types'
+import { type Eye, type ExerciseContext, type ExerciseDef, type ExerciseInstance, type Input, type Params } from '../engine/types'
 
 type Dir = 'up' | 'down'
 
@@ -111,8 +111,9 @@ export const def: ExerciseDef = {
   name: 'Acuity & Crowding',
   kind: 'monocular',
   summary: 'A shrinking E. Answer up or down. Crowding bars optional.',
-  instructions: (weakEye: Eye) => [
-    `Cover your ${otherEye(weakEye).toUpperCase()} eye.`,
+  // The cover cue is NOT repeated here: session.ts already prepends patchCue() for every
+  // monocular exercise, so naming it again printed the identical line twice (spec AT8).
+  instructions: (_weakEye: Eye) => [
     'An E points up or down.',
     'Swipe up or down to match it.',
     'Tap if you cannot tell.',

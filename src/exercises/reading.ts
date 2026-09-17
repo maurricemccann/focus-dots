@@ -4,7 +4,7 @@
 // never animated. Pages turn on a dwell of lineSec x lines-on-page; a tap
 // turns early. Everything is drawn inside y < 256 so the label strip
 // (y >= 260) never covers a line.
-import { clamp, otherEye, type ExerciseContext, type ExerciseDef, type ExerciseInstance, type Input, type Params } from '../engine/types'
+import { clamp, type ExerciseContext, type ExerciseDef, type ExerciseInstance, type Input, type Params } from '../engine/types'
 
 const DRAW_W = 576
 const DRAW_H = 256          // label strip starts at 260
@@ -90,8 +90,8 @@ export const def: ExerciseDef = {
   name: 'Weak-Eye Reading',
   kind: 'monocular',
   summary: 'Read text at a chosen size with the stronger eye covered.',
-  instructions: (weakEye) => [
-    `Cover your ${otherEye(weakEye).toUpperCase()} eye.`,
+  // Cover cue omitted on purpose — session.ts prepends patchCue() for monocular exercises (AT8).
+  instructions: () => [
     'Read each line with the open eye.',
     'Pages turn on their own.',
     'Tap to turn a page early.',
