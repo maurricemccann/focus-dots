@@ -81,8 +81,10 @@ export const def: ExerciseDef = {
     'Big dot low on the lens = NEAR.',
     'Small dot high on the lens = FAR.',
     'Look at the dot that is showing.',
-    'Keep both eyes open.',
+    // No "keep both eyes open" line: session.ts already prepends patchOffCue()
+    // for every binocular exercise, and there are only five lines to spend.
     'Let focus settle before each switch.',
+    'Blink often. Do not stare.',
   ],
   params: [
     { key: 'intervalSec', label: 'Hold', type: 'number', default: 4, min: 2, max: 15, step: 1, unit: 's', help: 'How long each target stays up before it switches.' },

@@ -195,9 +195,15 @@ export const def: ExerciseDef = {
   summary: 'Follow a bright ball along a dim path. Head still.',
   // FIVE lines, ASCII only — the instruction screen renders five and a sixth is
   // written but never seen (the same overflow fixation.ts records).
+  //
+  // Do NOT open with "Both eyes open." — session.ts prepends patchOffCue() for
+  // every binocular exercise, so an opener that says it again prints the cue
+  // twice. That is AT8's bug in the binocular direction: S279 fixed the
+  // monocular half (three exercises hardcoding the patch cue) and this half was
+  // left, because reading the code hides it and only the render shows it.
   instructions() {
     return [
-      'Both eyes open. Head still.',
+      'Keep your head still.',
       'Follow the bright ball with your eyes only.',
       'The dim path shows where it goes next.',
       'The strip says so if your head moves.',

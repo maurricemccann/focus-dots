@@ -28,7 +28,7 @@ export const def: ExerciseDef = {
   summary: 'A dot sweeps near, mid, far. Tap the moment it reads single and clear.',
   instructions: () => [
     'One dot at a time: near, then mid, then far.',
-    'Both eyes open, follow the dot.',
+    'Follow the dot.',
     'Tap the instant it looks single and sharp.',
     'If it splits into two or blurs, wait.',
     'It moves on its own either way.',
