@@ -27,27 +27,58 @@ const STEPS = 96                       // points sampled along the path
 const LABEL_EVERY_MS = 2000            // each label change is one more rebuild — cap the churn
 const HEAD_CUE_EVERY_MS = 1500         // don't nag on every sample — one cue, then a gap
 
-/** ms to wait after each step. Never below 80 — a rebuild is already ~100-300 ms. */
-function waitFor(speed: number) { return clamp(420 - speed * 35, 80, 400) }
+// ── Pacing ─────────────────────────────────────────────────────────────────
+// Set in SWEEP SECONDS — how long the ball takes to travel the path once —
+// not an abstract 1-10 dial (founder ruling S280·7a4e).
+//
+// The dial hid the thing that mattered. Measured against the exercise this was
+// built from (See In 3D `LXYkM28SEFc`, red-centroid tracked at 10 fps): their
+// straight line sweeps the full width in ~1.0 s and their 2D shapes run
+// 2.4-7.2 s per lap. The old default of speed 4 took **9.3 s** for the sweep
+// they do in 1.0 s — nine times slower than the research, and nothing in the
+// dial's units made that visible. Sweep seconds is the unit the research is
+// written in, so a wrong value now looks wrong.
+//
+// ⚠ The figures that used to live here — "585 ms at speed 1 to 280 ms at speed
+// 10" — were NOT measurements. Traced S280·7a4e: written 2026-09-07 (`0933c76`)
+// describing a `textContainerUpgrade` ("the fixed BLE cost per upgrade"), which
+// is the TRACER layout, one small container per step. The curve layout did not
+// exist yet (`0ddc905`, S276) and does a full `rebuildPageContainer` per step.
+// They were just `waitFor(speed) + 200`, an assumed flat overhead.
+
+const MIN_STEP_MS = 90   // measured floor: below this the rebuild is the limit, not our wait
+const MIN_SWEEP_SEC = 1
+const MAX_SWEEP_SEC = 30
 
 /**
- * Points advanced per step. Scales gently with speed because the fixed BLE cost
- * per rebuild compresses what the wait alone can express.
+ * Points advanced per step.
  *
- * ⚠ The figures that used to sit here — "585 ms at speed 1 to 280 ms at speed
- * 10" — were NOT measurements and are removed. Traced S280·7a4e: they arrived
- * 2026-09-07 (`0933c76`) describing a `textContainerUpgrade` ("the fixed BLE
- * cost per upgrade"), which is what the TRACER layout did — one small container
- * upgraded per step. The curve layout did not exist yet (`0ddc905`, S276) and
- * does a full `rebuildPageContainer` per step, a heavier and different call.
- * The numbers were also just `waitFor(speed) + 200`, an assumed flat overhead.
- *
- * So the real step period of THIS layout had never been measured. It is now
- * measured at runtime instead of asserted — see `stepMsAvg`/`stepMsP90` in the
- * result, which come back from whatever hardware actually ran it. That is the
- * number AT2's <=300 ms budget should be judged against.
+ * Smaller stride is smoother, so take the SMALLEST stride whose resulting step
+ * period still clears the hardware floor. Stride only grows when the requested
+ * sweep is faster than the display can actually be redrawn.
  */
-function stride(speed: number) { return 1 + Math.round(speed / 2) }
+function strideFor(sweepSec: number) {
+  return Math.max(1, Math.ceil((STEPS * MIN_STEP_MS) / (sweepSec * 1000)))
+}
+
+/** The step period that hits `sweepSec` exactly, given that stride. */
+function targetStepMs(sweepSec: number, stride: number) {
+  return (sweepSec * 1000 * stride) / STEPS
+}
+
+/**
+ * Legacy `speed` (1-10) → the sweep time it actually produced, so a routine
+ * saved before this change keeps the pace its owner chose rather than silently
+ * snapping to the new default. Derived from the same formulas the old code used:
+ * `stride = 1 + round(speed/2)`, `wait = clamp(420 - speed*35, 80, 400)`.
+ */
+function legacySweepSec(speed: number): number {
+  const s = clamp(Math.round(speed), 1, 10)
+  const oldStride = 1 + Math.round(s / 2)
+  const oldWait = clamp(420 - s * 35, 80, 400)
+  const steps = STEPS / oldStride
+  return clamp((steps * (oldWait + 12)) / 1000, MIN_SWEEP_SEC, MAX_SWEEP_SEC)
+}
 
 /** p90 of a small sample. Sorting a ~200-entry array once at the end is free. */
 function p90(xs: number[]) {
@@ -59,7 +90,13 @@ function p90(xs: number[]) {
 function create(ctx: ExerciseContext, params: Params): ExerciseInstance {
   const rawPath = String(params.path)
   const path: CurveShape = (PATHS as readonly string[]).includes(rawPath) ? (rawPath as CurveShape) : 'line'
-  let speed = clamp(Math.round(Number(params.speed) || 4), 1, 10)
+  // Legacy routines saved before S280 carry `speed`; honour the pace they chose
+  // rather than snapping them to the new default.
+  let sweepSec = params.sweepSec !== undefined
+    ? clamp(Number(params.sweepSec) || 2, MIN_SWEEP_SEC, MAX_SWEEP_SEC)
+    : params.speed !== undefined
+      ? legacySweepSec(Number(params.speed))
+      : 2
   const durationMs = clamp(Number(params.durationSec) || 60, 20, 300) * 1000
   const dim = clamp(Math.round(Number(params.pathDim) || 1), 1, 4) as 1 | 2 | 3 | 4
   const blinkMs = clamp(Number(params.blinkEverySec) ?? 20, 0, 120) * 1000   // 0 = off
@@ -76,9 +113,18 @@ function create(ctx: ExerciseContext, params: Params): ExerciseInstance {
   let finished = false
   let stopped = false
   let lastLabelAt = -Infinity
-  let labelNote = ''                    // one-shot label after a speed change or head cue
+  let labelNote = ''                    // one-shot label after a pace change or head cue
   let inflight: Promise<void> = Promise.resolve()
   let lastBlinkAt = 0
+
+  // The wait we ask for is not the step we get — a rebuild costs real time on
+  // real hardware, and how much is a property of the glasses, not of us. So
+  // learn it from what actually happened and subtract it, or a 2 s sweep on
+  // hardware with a 150 ms rebuild would silently take 5 s. Seeded from the
+  // simulator's measured ~12 ms; the first few steps correct it.
+  // ponytail: a plain EMA, deliberately. A PID here would be a toy.
+  let overheadMs = 12
+  let lastWaitMs = 0
 
   // Head-still, MEASURED rather than asked (AT5). This is the one thing a
   // monitor cannot do: paper and phones can only print "head still" and hope.
@@ -95,7 +141,7 @@ function create(ctx: ExerciseContext, params: Params): ExerciseInstance {
   const stepMs: number[] = []
 
   function advance() {
-    const s = stride(speed)
+    const s = strideFor(sweepSec)
     if (closed) { index = (index + s) % points.length; return }
     // An open path is walked out and back — jumping from the last point to the
     // first would snap the eye across the whole field, which is the opposite of
@@ -152,9 +198,15 @@ function create(ctx: ExerciseContext, params: Params): ExerciseInstance {
       // Timed AFTER the send resolves, so it includes the transport, not just
       // our own wait — the wait alone would measure the constant we chose.
       const landed = ctx.now()
-      if (lastStepAt) stepMs.push(landed - lastStepAt)
+      if (lastStepAt) {
+        const observed = landed - lastStepAt
+        stepMs.push(observed)
+        // observed = wait we took + what the rebuild actually cost.
+        overheadMs += 0.25 * (clamp(observed - lastWaitMs, 0, 600) - overheadMs)
+      }
       lastStepAt = landed
-      return waitFor(speed)
+      lastWaitMs = Math.max(0, targetStepMs(sweepSec, strideFor(sweepSec)) - overheadMs)
+      return lastWaitMs
     },
 
     async onInput(input: Input) {
@@ -178,10 +230,13 @@ function create(ctx: ExerciseContext, params: Params): ExerciseInstance {
         return
       }
       if (input.type !== 'up' && input.type !== 'down') return
-      const next = clamp(speed + (input.type === 'up' ? 1 : -1), 1, 10)
-      if (next === speed) return
-      speed = next
-      labelNote = `speed ${speed}`
+      // Multiplicative, because 1s -> 2s is a different exercise while
+      // 20s -> 21s is nothing. Up makes it faster (a shorter sweep).
+      const raw = input.type === 'up' ? sweepSec / 1.5 : sweepSec * 1.5
+      const next = clamp(Math.round(raw * 2) / 2, MIN_SWEEP_SEC, MAX_SWEEP_SEC)
+      if (next === sweepSec) return
+      sweepSec = next
+      labelNote = `sweep ${sweepSec}s`
       lastLabelAt = -Infinity          // the runner ticks right after input; show it then
     },
 
@@ -201,19 +256,24 @@ function create(ctx: ExerciseContext, params: Params): ExerciseInstance {
       // 100%. Same honesty rule fixation.ts follows.
       const measured = measuredMs > 0
       const stillPct = measured ? Math.round((stillMs / measuredMs) * 100) : 0
+      const avg = stepMs.length ? Math.round(stepMs.reduce((a, b) => a + b, 0) / stepMs.length) : 0
+      // What the sweep ACTUALLY took, against what was asked for. This is the
+      // whole point of pacing in sweep seconds: the target and the outcome are
+      // finally in the same units, so a miss is visible instead of inferred.
+      const sweepActual = avg ? Math.round((avg * (STEPS / strideFor(sweepSec))) / 100) / 10 : 0
       return {
         exerciseId: def.id,
         completed: finished,
         durationMs: ranMs,
         metrics: {
-          durationSec: Math.round(ranMs / 1000), steps, speed,
+          durationSec: Math.round(ranMs / 1000), steps,
+          sweepSecTarget: sweepSec, sweepSecActual: sweepActual,
           headStillPct: stillPct, headStillSec: Math.round(stillMs / 1000),
-          stepMsAvg: stepMs.length ? Math.round(stepMs.reduce((a, b) => a + b, 0) / stepMs.length) : 0,
-          stepMsP90: Math.round(p90(stepMs)),
+          stepMsAvg: avg, stepMsP90: Math.round(p90(stepMs)),
         },
         note: measured
-          ? `${path} · speed ${speed} · head still ${stillPct}%`
-          : `${path} · speed ${speed} · no head-motion data`,
+          ? `${path} · sweep ${sweepActual}s · head still ${stillPct}%`
+          : `${path} · sweep ${sweepActual}s · no head-motion data`,
       }
     },
   }
@@ -238,7 +298,7 @@ export const def: ExerciseDef = {
       'Follow the bright ball with your eyes only.',
       'The dim path shows where it goes next.',
       'The strip says so if your head moves.',
-      'Swipe up or down to change speed.',
+      'Swipe up to speed up, down to slow down.',
     ]
   },
   params: [
@@ -261,8 +321,8 @@ export const def: ExerciseDef = {
       help: 'How bright the guide path is. 1 is dimmest — the ball should always be the brightest thing on the lens.',
     },
     {
-      key: 'speed', label: 'Speed', type: 'number', default: 4, min: 1, max: 10, step: 1,
-      help: '1 is slow, 10 is fast. Swipe up or down during the exercise to change it.',
+      key: 'sweepSec', label: 'Sweep', type: 'number', default: 2, min: 1, max: 30, step: 0.5, unit: 's',
+      help: 'How long the ball takes to travel the path once. The exercise this is built from runs its straight line in about 1s and its shapes in 2-7s. Swipe up to speed up, down to slow down.',
     },
     {
       key: 'durationSec', label: 'Duration', type: 'number', default: 60, min: 20, max: 300, step: 10, unit: 's',
