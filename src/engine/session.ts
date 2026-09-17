@@ -248,6 +248,10 @@ async function finishStep(completed: boolean) {
     r.completed = completed && r.completed
     r.durationMs = Date.now() - stepStart
     results.push(r)
+    // The only place a finished exercise's own numbers are visible outside the
+    // summary screen. Cheap, and it is how a measured step period (AT2) or a
+    // head-still score gets read off a real device run instead of guessed at.
+    console.log('[FocusDots] result', r.exerciseId, JSON.stringify(r.metrics))
   }
   stepIndex++
   if (stepIndex >= routine.steps.length) { await showSummary(); return }

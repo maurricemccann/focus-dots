@@ -32,10 +32,29 @@ function waitFor(speed: number) { return clamp(420 - speed * 35, 80, 400) }
 
 /**
  * Points advanced per step. Scales gently with speed because the fixed BLE cost
- * per rebuild compresses what the wait alone can express — real step periods run
- * roughly 585 ms at speed 1 to 280 ms at speed 10, only ~2x.
+ * per rebuild compresses what the wait alone can express.
+ *
+ * ⚠ The figures that used to sit here — "585 ms at speed 1 to 280 ms at speed
+ * 10" — were NOT measurements and are removed. Traced S280·7a4e: they arrived
+ * 2026-09-07 (`0933c76`) describing a `textContainerUpgrade` ("the fixed BLE
+ * cost per upgrade"), which is what the TRACER layout did — one small container
+ * upgraded per step. The curve layout did not exist yet (`0ddc905`, S276) and
+ * does a full `rebuildPageContainer` per step, a heavier and different call.
+ * The numbers were also just `waitFor(speed) + 200`, an assumed flat overhead.
+ *
+ * So the real step period of THIS layout had never been measured. It is now
+ * measured at runtime instead of asserted — see `stepMsAvg`/`stepMsP90` in the
+ * result, which come back from whatever hardware actually ran it. That is the
+ * number AT2's <=300 ms budget should be judged against.
  */
 function stride(speed: number) { return 1 + Math.round(speed / 2) }
+
+/** p90 of a small sample. Sorting a ~200-entry array once at the end is free. */
+function p90(xs: number[]) {
+  if (!xs.length) return 0
+  const s = [...xs].sort((a, b) => a - b)
+  return s[Math.min(s.length - 1, Math.floor(s.length * 0.9))]
+}
 
 function create(ctx: ExerciseContext, params: Params): ExerciseInstance {
   const rawPath = String(params.path)
@@ -69,6 +88,11 @@ function create(ctx: ExerciseContext, params: Params): ExerciseInstance {
   let lastCueAt = -Infinity
   let stillMs = 0
   let measuredMs = 0
+
+  // Wall-clock between one ball move landing and the next. This is the whole of
+  // AT2's budget: our wait plus the real cost of the rebuild on real hardware.
+  let lastStepAt = 0
+  const stepMs: number[] = []
 
   function advance() {
     const s = stride(speed)
@@ -125,6 +149,11 @@ function create(ctx: ExerciseContext, params: Params): ExerciseInstance {
       advance()
       await place(now)
       steps++
+      // Timed AFTER the send resolves, so it includes the transport, not just
+      // our own wait — the wait alone would measure the constant we chose.
+      const landed = ctx.now()
+      if (lastStepAt) stepMs.push(landed - lastStepAt)
+      lastStepAt = landed
       return waitFor(speed)
     },
 
@@ -179,6 +208,8 @@ function create(ctx: ExerciseContext, params: Params): ExerciseInstance {
         metrics: {
           durationSec: Math.round(ranMs / 1000), steps, speed,
           headStillPct: stillPct, headStillSec: Math.round(stillMs / 1000),
+          stepMsAvg: stepMs.length ? Math.round(stepMs.reduce((a, b) => a + b, 0) / stepMs.length) : 0,
+          stepMsP90: Math.round(p90(stepMs)),
         },
         note: measured
           ? `${path} · speed ${speed} · head still ${stillPct}%`
