@@ -182,14 +182,20 @@ export function App() {
     <AppShell
       header={
         <ScreenHeader
-          title="Focus Dots"
+          title="PL FOCUS"
           subtitle={`${streakDays()}-day streak · ${sessionsThisWeek()} this week · ${totalMinutes()} min`}
         />
       }
       footer={<p className="px-4 py-2 text-xs opacity-60">{STOP_RULE}</p>}
     >
       <div className="space-y-5 p-4">
-        <p className="text-sm opacity-75">{EXPECTATIONS_PHONE[0]}</p>
+        {/* All of it, not just [0]. Four of these five paragraphs — the stop
+            rule, the one-eye explanation, and the line naming a vision
+            therapist — were written and never rendered, which for a
+            health-adjacent app is the copy that matters most going missing. */}
+        {EXPECTATIONS_PHONE.map((p, i) => (
+          <p key={i} className="text-sm opacity-75">{p}</p>
+        ))}
 
         <SettingsGroup label="Weak eye">
           <SegmentedControl

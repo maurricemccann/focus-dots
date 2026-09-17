@@ -3,9 +3,6 @@
 import type { Eye } from '../engine/types'
 import { otherEye } from '../engine/types'
 
-export const APP_NAME = 'Focus Dots'
-export const MAKER = 'Made by Psyched Luxuries'
-
 // Shown on the lenses on first run, and any time from About. Short lines —
 // the lenses hold about 8 lines of firmware text.
 export const EXPECTATIONS_LENS = [
@@ -26,6 +23,7 @@ export const EXPECTATIONS_PHONE = [
   'Consistency beats intensity. Five to thirty minutes a day, every day, does more than an hour once a week. Split it into two or three short sessions if that is easier.',
   'Stop if you get a headache, eye pain, dizziness, or double vision that does not clear when you stop. Those are signals to rest and, if they persist, to see an optometrist.',
   'The glasses show both eyes the same image. Exercises marked "one eye" ask you to cover your stronger eye with your hand or a patch — the app cannot do that for you.',
+  'Work under a registered vision therapist or optometrist. This is what you do between their appointments, not instead of them. It was built by someone with amblyopia, not by a clinician.',
 ]
 
 export const STOP_RULE = 'Stop if you get a headache, eye pain, dizziness, or double vision that lingers.'
